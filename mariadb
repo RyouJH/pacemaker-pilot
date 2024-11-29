@@ -1,0 +1,108 @@
+#!/bin/sh
+
+#######################################################################
+# Initialization:
+
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+#######################################################################
+
+#
+# Defaults
+#
+meta_data() {
+    cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="service">
+<version>1.0</version>
+
+<longdesc lang="en">
+</longdesc>
+<shortdesc lang="en">Mariadb Resource Agent</shortdesc>
+<parameters/>
+<actions>
+<action name="start"        timeout="600s" />
+<action name="stop"         timeout="600s" />
+<action name="monitor"      timeout="30s" interval="20s" depth="0" />
+<action name="migrate_to"   timeout="30s" />
+<action name="migrate_from" timeout="30s" />
+<action name="meta-data"    timeout="5s" />
+<action name="validate"     timeout="10s" />
+<action name="validate-all" timeout="10s" />
+</actions>
+</resource-agent>
+END
+}
+
+#######################################################################
+
+service_start() {
+    ocf_log info "Starting Mariadb...."
+    systemctl start mariadb
+    RET=$?
+    sleep 5
+    if [ $RET -ne 0 ]; then
+    	ocf_log err "MariaDB Start Error"
+	    return $OCF_ERROR_GENERIC
+    else
+	    return $OCF_SUCCESS
+    fi   
+}
+
+service_stop() {
+    systemctl stop mariadb
+    RET=$?
+    sleep 5    
+    if [ $RET -ne 0 ]; then
+        return $OCF_ERROR_GENERIC
+    else 
+        ocf_log info "mariadb stopped successfully"
+        return $OCF_SUCCESS
+    fi    
+}
+service_monitor() {
+	ps -ef | grep /usr/sbin/mariadb | grep -vq grep
+	RET=$?
+	if [ $RET -eq 0 ]; then
+        PID=$(ps -ef | grep /usr/sbin/mariadbd | grep -v grep | awk '{print $2}')
+        ocf_log info "mariadb is running. pid : ${PID}"
+		return $OCF_SUCCESS
+	else
+		return $OCF_NOT_RUNNING
+	fi 
+}
+
+case $__OCF_ACTION in
+    meta-data)
+        meta_data
+        exit $OCF_SUCCESS
+        ;;
+esac
+case $__OCF_ACTION in
+    start)
+        service_start
+        ;;
+    stop)
+        service_stop
+        ;;
+    monitor)
+        service_monitor
+        ;;
+    reload)
+        ocf_log info "Reloading ${OCF_RESOURCE_INSTANCE} ..."
+        ;;
+    validate|validate-all)
+        ;;
+    usage|help)
+        exit $OCF_SUCCESS
+        ;;
+    *)
+        service_usage
+        exit $OCF_ERR_UNIMPLEMENTED
+        ;;
+esac
+
+rc=$?
+ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION : $rc"
+exit $rc
