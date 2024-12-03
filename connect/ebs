@@ -11,12 +11,10 @@
 # Defaults
 #
 OCF_RESKEY_awscli_default="/usr/bin/aws"
-OCF_RESKEY_profile_default="default"
 OCF_RESKEY_api_delay_default="3"
 OCF_RESKEY_netmask_default="24"
 
 : ${OCF_RESKEY_awscli=${OCF_RESKEY_awscli_default}}
-: ${OCF_RESKEY_profile=${OCF_RESKEY_profile_default}}
 : ${OCF_RESKEY_api_delay=${OCF_RESKEY_api_delay_default}}
 : ${OCF_RESKEY_netmask=${OCF_RESKEY_netmask_default}}
 meta_data() {
@@ -45,14 +43,6 @@ command line tools for aws services
 </longdesc>
 <shortdesc lang="en">aws cli tools</shortdesc>
 <content type="string" default="${OCF_RESKEY_awscli_default}" />
-</parameter>
-
-<parameter name="profile">
-<longdesc lang="en">
-Valid AWS CLI profile name (see ~/.aws/config and 'aws configure')
-</longdesc>
-<shortdesc lang="en">profile name</shortdesc>
-<content type="string" default="${OCF_RESKEY_profile_default}" />
 </parameter>
 
 <parameter name="volume_id" unique="1" required="1">
@@ -91,8 +81,8 @@ END
 awsebs_start() {
     awsebs_monitor && return $OCF_SUCCESS
     ocf_log info "volume detached successfully. volume : ${VOLUME_ID}"
-    $AWSCLI --profile $OCF_RESKEY_profile ec2 attach-volume --volume-id ${VOLUME_ID} --instance-id ${INSTANCE_ID} --device /dev/xvdc && \
-    $AWSCLI --profile $OCF_RESKEY_profile ec2 wait volume-in-use --volume-ids ${VOLUME_ID} && \
+    $AWSCLI ec2 attach-volume --volume-id ${VOLUME_ID} --instance-id ${INSTANCE_ID} --device /dev/xvdc && \
+    $AWSCLI ec2 wait volume-in-use --volume-ids ${VOLUME_ID} && \
     ocf_log info "waiting for attach volume successfully. volume : ${VOLUME_ID}, ec2 : ${INSTANCE_ID}"
     RET=$?
     if [ $RET -ne 0 ]; then
@@ -104,8 +94,8 @@ awsebs_start() {
 
 awsebs_stop() {
     awsebs_monitor || return $OCF_SUCCESS
-    $AWSCLI --profile $OCF_RESKEY_profile ec2 detach-volume --volume-id ${VOLUME_ID} && \
-    $AWSCLI --profile $OCF_RESKEY_profile ec2 wait volume-available --volume-ids ${VOLUME_ID} && \
+    $AWSCLI ec2 detach-volume --volume-id ${VOLUME_ID} && \
+    $AWSCLI ec2 wait volume-available --volume-ids ${VOLUME_ID} && \
     ocf_log info "waiting for detach volume successfully. volume : ${VOLUME_ID}, from ec2 : ${INSTANCE_ID}"
     RET=$?
     if [ $RET -ne 0 ]; then
@@ -116,7 +106,7 @@ awsebs_stop() {
 }
 
 awsebs_monitor() {
-    $AWSCLI --profile ${OCF_RESKEY_profile} ec2 describe-instances \
+    $AWSCLI ec2 describe-instances \
             --instance-id ${INSTANCE_ID} \
             --query "Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId" \
  	        --output text | \
